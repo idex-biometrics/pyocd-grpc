@@ -127,7 +127,7 @@ class GrpcProbe(DebugProbe):
     def capabilities(self):
         return {
             self.Capability.SWJ_SEQUENCE,
-            self.Capability.SWD_SEQUENCE,
+            # self.Capability.SWD_SEQUENCE,
             # self.Capability.SWO, REVISIT: need to implement the SWO control methods
         }
 

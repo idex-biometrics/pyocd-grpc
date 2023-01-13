@@ -46,6 +46,7 @@ version = {attr = "pyocd_grpc.__version__"}
 
 [tool.setuptools_scm]
 write_to = "pyocd_grpc/_version.py"
+local_scheme = "dirty-tag"
 
 [tool.setuptools.packages]
 find = {}
