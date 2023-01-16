@@ -142,7 +142,7 @@ class GrpcProbe(DebugProbe):
     # --------------------------------------------------------------------------------
 
     def connect(self) -> None:
-        self._stub.SendCommand(
+        self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
                 id=self._id,
                 command=debugprobe_pb2.Connect
@@ -150,7 +150,7 @@ class GrpcProbe(DebugProbe):
         )
 
     def disconnect(self) -> None:
-        self._stub.SendCommand(
+        self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
                 id=self._id,
                 command=debugprobe_pb2.Disconnect
@@ -158,7 +158,7 @@ class GrpcProbe(DebugProbe):
         )
 
     def set_clock(self, frequency: int) -> None:
-        self._stub.SendCommand(
+        self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
                 id=self._id,
                 command=debugprobe_pb2.SetClock,
@@ -167,7 +167,7 @@ class GrpcProbe(DebugProbe):
         )
 
     def swj_sequence(self, length, bits) -> None:
-        self._stub.SendCommand(
+        self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
                 id=self._id,
                 command=debugprobe_pb2.SwjSequence,
@@ -238,7 +238,7 @@ class GrpcProbe(DebugProbe):
 
 
     def _read_reg(self, ap_n_dp: bool, addr: int, count: int):
-        response = self._stub.SendCommand(
+        response = self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
                 id=self._id,
                 command=debugprobe_pb2.ReadRegister,
@@ -253,7 +253,7 @@ class GrpcProbe(DebugProbe):
 
 
     def _write_reg(self, ap_n_dp: bool, addr: int, values: List[int]) -> None:
-        self._stub.SendCommand(
+        self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
                 id=self._id,
                 command=debugprobe_pb2.WriteRegister,
