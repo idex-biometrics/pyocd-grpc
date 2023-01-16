@@ -34,15 +34,12 @@
 import logging
 import grpc
 from . import debugprobe_pb2_grpc, debugprobe_pb2
-from .debugprobe_pb2 import Command
 
 from time import sleep
 from typing import Collection, List, Callable, Union
 
 from pyocd.probe.debug_probe import DebugProbe
 from pyocd.core.plugin import Plugin
-from pyocd.core import exceptions
-from pyocd.utility.mask import parity32_high
 
 from ._version import version as plugin_version
 
