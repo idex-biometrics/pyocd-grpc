@@ -1,6 +1,7 @@
 [project]
 name = "pyocd-grpc"
 description = "a remote PyOCd debug probe plugin using gRPC"
+readme = "README.md"
 authors = [
     { name = "Shareef Jalloq" },
     { email = "shareef.jalloq@idexbiometrics.com" }
