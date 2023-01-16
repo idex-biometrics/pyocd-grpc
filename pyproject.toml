@@ -51,3 +51,6 @@ local_scheme = "dirty-tag"
 
 [tool.setuptools.packages]
 find = {}
+
+[project.entry-points."pyocd.probe"]
+grpc = "pyocd_grpc:GrpcProbePlugin"
