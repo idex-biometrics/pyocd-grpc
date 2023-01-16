@@ -1,12 +1,13 @@
 /** PyOCD gRPC Debug Probe Protocol Buffer Definition
-  * 
+  *
   * This protobuf specification matches the abstract PyOCD DebugProbe class.
-  * 
+  *
   */
 syntax = "proto3";
+package debug_probe;
 
 service DebugProbeService {
-    rpc SendCommand (DebugProbeRequest) returns (DebugProbeResponse);
+    rpc DebugProbeCommand (DebugProbeRequest) returns (DebugProbeResponse);
 }
 
 enum Command {
@@ -44,10 +45,10 @@ enum ResponseStatus {
 */
 message SwjSequenceRequest {
     uint32 length = 1;        // max 256 bits
-    repeated uint64 bits = 2; // 
+    repeated uint64 bits = 2; //
 }
 
-/*  swd_sequence 
+/*  swd_sequence
 
     Send a sequence of bits on SWDIO.
 
