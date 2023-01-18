@@ -40,6 +40,7 @@ from typing import Collection, List, Callable, Union
 
 from pyocd.probe.debug_probe import DebugProbe
 from pyocd.core.plugin import Plugin
+from pyocd.core import exceptions
 
 from ._version import version as plugin_version
 
@@ -53,6 +54,13 @@ class GrpcProbe(DebugProbe):
     """@brief Provides remote access to a debug probe using gRPC. """
 
     DEFAULT_PORT = 50051
+
+    # APnDP constants
+    AP = 1
+    DP = 0
+
+    # Address of read buffer register in DP.
+    RDBUFF = 0xC
 
     @classmethod
     def _extract_address(cls, unique_id):
@@ -162,7 +170,7 @@ class GrpcProbe(DebugProbe):
             debugprobe_pb2.DebugProbeRequest(
                 id=self._id,
                 command=debugprobe_pb2.SetClock,
-                set_clock_req=debugprobe_pb2.SetClockRequest(frequency)
+                set_clock_req=debugprobe_pb2.SetClockRequest(frequency=frequency)
             )
         )
 
@@ -187,41 +195,35 @@ class GrpcProbe(DebugProbe):
     # --------------------------------------------------------------------------------
 
     def read_dp(self, addr: int, now: bool=True) -> Union[int, Callable[[], int]]:
-        values = self._read_reg(False, addr, 1)
+        values = self._read_reg(self.DP, addr, 1)
 
         def read_cb():
             assert len(values) == 1
             return values[0]
 
-        if now:
-            return read_cb()
-        else:
-            return read_cb
+        return read_cb() if now else read_cb
 
 
-    def write_dp(self, addr, value):
-        self._write_reg(False, addr, [value])
+    def write_dp(self, addr: int, value: int) -> None:
+        self._write_reg(self.DP, addr, [value])
 
 
-    def read_ap(self, addr, now=True):
-        values = self._read_reg(False, addr, 1)
+    def read_ap(self, addr: int, now: bool = True):
+        (value,) = self.read_ap_multiple(addr, 1)
 
         def read_cb():
-            assert len(values) == 1
-            return values[0]
+            return value
 
-        if now:
-            return read_cb()
-        else:
-            return read_cb
+        return read_cb() if now else read_cb
 
 
     def write_ap(self, addr, value):
-        self._write_reg(True, addr, [value])
+        self._write_reg(self.AP, addr, [value])
 
 
     def read_ap_multiple(self, addr: int, count: int = 1, now: bool = True):
-        values = self._read_reg(True, addr, count)
+        values = self._read_reg(self.AP, addr, count)
+        values = values[1:] + self._read_reg(self.DP, self.RDBUFF, 1)
 
         def read_cb():
             assert len(values) == count
@@ -234,38 +236,54 @@ class GrpcProbe(DebugProbe):
 
 
     def write_ap_multiple(self, addr: int, values: List[int]):
-        self._write_reg(True, addr, values)
+        self._write_reg(1, addr, values)
 
 
-    def _read_reg(self, ap_n_dp: bool, addr: int, count: int):
+    def _read_reg(self, ap_n_dp: int, addr: int, count: int):
+        id = self._id
         response = self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
-                id=self._id,
+                id=id,
                 command=debugprobe_pb2.ReadRegister,
                 read_reg_req=debugprobe_pb2.ReadRegisterRequest(
                     ap_n_dp=ap_n_dp,
-                    address=addr,
+                    address=addr>>2,
                     count=count
                 )
             )
         )
-        return response.values
+        assert response.id == id, "id does not match"
+        assert response.WhichOneof('response') == 'read_reg_rsp', "incorrect response type"
+
+        # REVISIT: what exceptions need to be raised?
+        if response.status != debugprobe_pb2.Ok:
+            raise exceptions.TransferError
+
+        data = [v for v in response.read_reg_rsp.values]
+        LOG.info(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
+        return data
 
 
-    def _write_reg(self, ap_n_dp: bool, addr: int, values: List[int]) -> None:
-        self._stub.DebugProbeCommand(
+    def _write_reg(self, ap_n_dp: int, addr: int, values: List[int]) -> None:
+        id = self._id
+        response = self._stub.DebugProbeCommand(
             debugprobe_pb2.DebugProbeRequest(
-                id=self._id,
+                id=id,
                 command=debugprobe_pb2.WriteRegister,
                 write_reg_req=debugprobe_pb2.WriteRegisterRequest(
                     ap_n_dp=ap_n_dp,
-                    address=addr,
+                    address=addr>>2,
                     count=len(values),
                     values=values
                 )
             )
         )
+        assert response.id == id, "id does not match"
 
+        LOG.info(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")   
+        # REVISIT: what exceptions need to be raised?
+        if response.status != debugprobe_pb2.Ok:
+            raise exceptions.TransferError
 
 
 class GrpcProbePlugin(Plugin):
