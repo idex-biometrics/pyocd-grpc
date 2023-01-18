@@ -28,8 +28,10 @@ enum Command {
 }
 
 enum ResponseStatus {
-    Ok = 0;
-    Error = 1;
+    AckError = 0;
+    AckOk = 1;
+    AckWait = 2;
+    AckFault = 3;
 }
 
 /*  swj_sequence

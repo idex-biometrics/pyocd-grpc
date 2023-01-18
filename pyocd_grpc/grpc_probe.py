@@ -62,6 +62,13 @@ class GrpcProbe(DebugProbe):
     # Address of read buffer register in DP.
     RDBUFF = 0xC
 
+    ACK_EXCEPTIONS = {
+        debugprobe_pb2.AckOk: None,
+        debugprobe_pb2.AckWait: exceptions.TransferTimeoutError("ACK WAIT"),
+        debugprobe_pb2.AckFault: exceptions.TransferFaultError("ACK FAULT"),
+        debugprobe_pb2.AckError: exceptions.TransferError("NO_ACK"),
+    }
+
     @classmethod
     def _extract_address(cls, unique_id):
         parts = unique_id.split(':', 1)
@@ -255,9 +262,8 @@ class GrpcProbe(DebugProbe):
         assert response.id == id, "id does not match"
         assert response.WhichOneof('response') == 'read_reg_rsp', "incorrect response type"
 
-        # REVISIT: what exceptions need to be raised?
-        if response.status != debugprobe_pb2.Ok:
-            raise exceptions.TransferError
+        if response.status != debugprobe_pb2.AckOk:
+            raise self.ACK_EXCEPTIONS[response.status]
 
         data = [v for v in response.read_reg_rsp.values]
         LOG.info(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
@@ -281,9 +287,9 @@ class GrpcProbe(DebugProbe):
         assert response.id == id, "id does not match"
 
         LOG.info(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")   
-        # REVISIT: what exceptions need to be raised?
-        if response.status != debugprobe_pb2.Ok:
-            raise exceptions.TransferError
+        
+        if response.status != debugprobe_pb2.AckOk:
+            raise self.ACK_EXCEPTIONS[response.status]
 
 
 class GrpcProbePlugin(Plugin):
