@@ -31,6 +31,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import logging
 import grpc
 from . import debugprobe_pb2_grpc, debugprobe_pb2
@@ -61,6 +63,9 @@ class GrpcProbe(DebugProbe):
 
     # Address of read buffer register in DP.
     RDBUFF = 0xC
+
+    # How many times we retry a request that results in a WAIT/FAULT response
+    RETRIES = 5
 
     ACK_EXCEPTIONS = {
         debugprobe_pb2.AckOk: None,
@@ -202,6 +207,7 @@ class GrpcProbe(DebugProbe):
     # --------------------------------------------------------------------------------
 
     def read_dp(self, addr: int, now: bool=True) -> Union[int, Callable[[], int]]:
+        LOG.info(f"read_dp: addr={addr}")
         values = self._read_reg(self.DP, addr, 1)
 
         def read_cb():
@@ -216,6 +222,7 @@ class GrpcProbe(DebugProbe):
 
 
     def read_ap(self, addr: int, now: bool = True):
+        LOG.info(f"read_ap: addr={addr}")
         (value,) = self.read_ap_multiple(addr, 1)
 
         def read_cb():
@@ -247,33 +254,44 @@ class GrpcProbe(DebugProbe):
 
 
     def _read_reg(self, ap_n_dp: int, addr: int, count: int):
-        id = self._id
-        response = self._stub.DebugProbeCommand(
-            debugprobe_pb2.DebugProbeRequest(
-                id=id,
-                command=debugprobe_pb2.ReadRegister,
-                read_reg_req=debugprobe_pb2.ReadRegisterRequest(
-                    ap_n_dp=ap_n_dp,
-                    address=addr>>2,
-                    count=count
-                )
-            )
-        )
-        assert response.id == id, "id does not match"
-        assert response.WhichOneof('response') == 'read_reg_rsp', "incorrect response type"
+        retry = 0
+        while True:
+            response = self._call_rpc(ap_n_dp=ap_n_dp, addr=addr, count=count)
 
-        if response.status != debugprobe_pb2.AckOk:
-            raise self.ACK_EXCEPTIONS[response.status]
+            # REVISIT: the gRPC server should handle WAITed responses so is this needed?    
+            if response.status == debugprobe_pb2.AckOk:
+                assert response.WhichOneof('response') == 'read_reg_rsp', "incorrect response type"
+                data = [v for v in response.read_reg_rsp.values]
+                LOG.info(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
+                return data
 
-        data = [v for v in response.read_reg_rsp.values]
-        LOG.info(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
-        return data
+            if retry == self.RETRIES:
+                raise self.ACK_EXCEPTIONS[response.status]
+
+            LOG.info("_read_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
+            retry += 1
 
 
     def _write_reg(self, ap_n_dp: int, addr: int, values: List[int]) -> None:
+        retry = 0
+        while True:
+            LOG.info(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")   
+            response = self._call_rpc(ap_n_dp=ap_n_dp, addr=addr, values=values)
+
+            if response.status == debugprobe_pb2.AckOk:
+                return 
+
+            if retry == self.RETRIES:
+                raise self.ACK_EXCEPTIONS[response.status]
+
+            LOG.info("_write_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
+            retry += 1
+
+
+    def _call_rpc(self, *, ap_n_dp: int, addr: int, count: int | None = None, values: List[int] | None = None) -> debugprobe_pb2.DebugProbeResponse:
         id = self._id
-        response = self._stub.DebugProbeCommand(
-            debugprobe_pb2.DebugProbeRequest(
+        if values:
+            request = debugprobe_pb2.DebugProbeRequest(
                 id=id,
                 command=debugprobe_pb2.WriteRegister,
                 write_reg_req=debugprobe_pb2.WriteRegisterRequest(
@@ -283,13 +301,19 @@ class GrpcProbe(DebugProbe):
                     values=values
                 )
             )
-        )
+        else:
+            request = debugprobe_pb2.DebugProbeRequest(
+                id=id,
+                command=debugprobe_pb2.ReadRegister,
+                read_reg_req=debugprobe_pb2.ReadRegisterRequest(
+                    ap_n_dp=ap_n_dp,
+                    address=addr>>2,
+                    count=count
+                )
+            )
+        response = self._stub.DebugProbeCommand(request)
         assert response.id == id, "id does not match"
-
-        LOG.info(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")   
-        
-        if response.status != debugprobe_pb2.AckOk:
-            raise self.ACK_EXCEPTIONS[response.status]
+        return response
 
 
 class GrpcProbePlugin(Plugin):
