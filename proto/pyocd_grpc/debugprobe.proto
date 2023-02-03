@@ -119,45 +119,29 @@ message IsResetAssertedResponse {
 }
 
 
-/*  read_dp and read_ap
+/*  read_dp/read_ap/write_dp/write_ap
 
-    Read one or more DP/AP registers.
+    Read or write one or more DP/AP registers.
+    NOTE: the |values| field is optional depending on write/read.
 
     Request:
-        |ap_n_dp| is a boolean that defines if the access should be directed to the DP or AP. True for AP.
+        |ap_n_dp| is a boolean that defines if the access is to the DP or AP. True for AP.
         |address| is the 2-bit register address.
         |count| is the number of times to read the register.
+        |values| is the 32-bit value to write
 
     Response:
-        |value| is the 32-bit value read from the register
+        |values| is the 32-bit value read from the register
 */
-message ReadRegisterRequest {
+message RegisterRequest {
     bool ap_n_dp = 1;
     uint32 address = 2;
     uint32 count = 3;
+    repeated uint32 values = 4;
 }
 
-message ReadRegisterResponse {
+message RegisterResponse {
     repeated uint32 values = 1;
-}
-
-
-/*  write_dp and write_ap
-
-    Write one or more DP/AP registers.
-
-    Request:
-        |ap_n_dp| is a boolean that defines if the access should be directed to the DP or AP. True for AP.
-        |address| is the 2-bit register address.
-        |count| is the number of times to write the register.
-        |value| is the 32-bit value to write
-
-*/
-message WriteRegisterRequest {
-        bool ap_n_dp = 1;
-        uint32 address = 2;
-        uint32 count = 3;
-        repeated uint32 values = 4;
 }
 
 
@@ -169,8 +153,7 @@ message DebugProbeRequest {
     oneof request {
         SwjSequenceRequest swj_seq_req = 3;
         SwdSequenceRequest swd_seq_req = 4;
-        ReadRegisterRequest read_reg_req = 5;
-        WriteRegisterRequest write_reg_req = 6;
+        RegisterRequest reg_req = 5;
         SetClockRequest set_clock_req = 14;
         AssertResetRequest assert_reset_req = 15;
     }
@@ -181,7 +164,7 @@ message DebugProbeResponse {
     ResponseStatus status = 2;
     oneof response {
         SwdSequenceResponse swd_seq_rsp = 3;
-        ReadRegisterResponse read_reg_rsp = 4;
+        RegisterResponse reg_rsp = 4;
         IsResetAssertedResponse is_reset_asserted_rst = 15;
     }
 }

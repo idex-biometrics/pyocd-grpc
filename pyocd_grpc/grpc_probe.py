@@ -64,9 +64,6 @@ class GrpcProbe(DebugProbe):
     # Address of read buffer register in DP.
     RDBUFF = 0xC
 
-    # How many times we retry a request that results in a WAIT/FAULT response
-    RETRIES = 5
-
     ACK_EXCEPTIONS = {
         debugprobe_pb2.AckOk: None,
         debugprobe_pb2.AckWait: exceptions.TransferTimeoutError("ACK WAIT"),
@@ -134,7 +131,7 @@ class GrpcProbe(DebugProbe):
 
     @property
     def wire_protocol(self):
-        return DebugProbe.Protocol.SWD 
+        return DebugProbe.Protocol.SWD
 
     @property
     def is_open(self):
@@ -194,7 +191,7 @@ class GrpcProbe(DebugProbe):
                 swj_seq_req=debugprobe_pb2.SwjSequenceRequest(
                     length=length,
                     bits=[
-                        (bits >> i*64) & 0xffffffffffffffff 
+                        (bits >> i*64) & 0xffffffffffffffff
                         for i in range((length+63)//64)
                     ]
                 )
@@ -254,38 +251,25 @@ class GrpcProbe(DebugProbe):
 
 
     def _read_reg(self, ap_n_dp: int, addr: int, count: int):
-        retry = 0
-        while True:
-            response = self._call_rpc(ap_n_dp=ap_n_dp, addr=addr, count=count)
+        response = self._call_rpc(ap_n_dp=ap_n_dp, addr=addr, count=count)
+        if response.status == debugprobe_pb2.AckOk:
+            assert response.WhichOneof('response') == 'reg_rsp', "incorrect response type"
+            data = [v for v in response.reg_rsp.values]
+            LOG.info(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
+            return data
 
-            # REVISIT: the gRPC server should handle WAITed responses so is this needed?    
-            if response.status == debugprobe_pb2.AckOk:
-                assert response.WhichOneof('response') == 'read_reg_rsp', "incorrect response type"
-                data = [v for v in response.read_reg_rsp.values]
-                LOG.info(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
-                return data
-
-            if retry == self.RETRIES:
-                raise self.ACK_EXCEPTIONS[response.status]
-
-            LOG.info("_read_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
-            retry += 1
+        LOG.info("_read_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
+        raise self.ACK_EXCEPTIONS[response.status]
 
 
     def _write_reg(self, ap_n_dp: int, addr: int, values: List[int]) -> None:
-        retry = 0
-        while True:
-            LOG.info(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")   
-            response = self._call_rpc(ap_n_dp=ap_n_dp, addr=addr, values=values)
+        LOG.info(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")
+        response = self._call_rpc(ap_n_dp=ap_n_dp, addr=addr, values=values)
+        if response.status == debugprobe_pb2.AckOk:
+            return
 
-            if response.status == debugprobe_pb2.AckOk:
-                return 
-
-            if retry == self.RETRIES:
-                raise self.ACK_EXCEPTIONS[response.status]
-
-            LOG.info("_write_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
-            retry += 1
+        LOG.info("_write_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
+        raise self.ACK_EXCEPTIONS[response.status]
 
 
     def _call_rpc(self, *, ap_n_dp: int, addr: int, count: int | None = None, values: List[int] | None = None) -> debugprobe_pb2.DebugProbeResponse:
@@ -294,7 +278,7 @@ class GrpcProbe(DebugProbe):
             request = debugprobe_pb2.DebugProbeRequest(
                 id=id,
                 command=debugprobe_pb2.WriteRegister,
-                write_reg_req=debugprobe_pb2.WriteRegisterRequest(
+                reg_req=debugprobe_pb2.RegisterRequest(
                     ap_n_dp=ap_n_dp,
                     address=addr>>2,
                     count=len(values),
@@ -305,7 +289,7 @@ class GrpcProbe(DebugProbe):
             request = debugprobe_pb2.DebugProbeRequest(
                 id=id,
                 command=debugprobe_pb2.ReadRegister,
-                read_reg_req=debugprobe_pb2.ReadRegisterRequest(
+                reg_req=debugprobe_pb2.RegisterRequest(
                     ap_n_dp=ap_n_dp,
                     address=addr>>2,
                     count=count
@@ -317,7 +301,7 @@ class GrpcProbe(DebugProbe):
 
 
 class GrpcProbePlugin(Plugin):
-    """! @brief Plugin class for RemoteBitbangProbe."""
+    """! @brief Plugin class for GrpcProbe."""
 
     def load(self):
         return GrpcProbe
