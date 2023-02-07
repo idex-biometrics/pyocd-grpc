@@ -204,7 +204,7 @@ class GrpcProbe(DebugProbe):
     # --------------------------------------------------------------------------------
 
     def read_dp(self, addr: int, now: bool=True) -> Union[int, Callable[[], int]]:
-        LOG.info(f"read_dp: addr={addr}")
+        LOG.debug(f"read_dp: addr={addr}")
         values = self._read_reg(self.DP, addr, 1)
 
         def read_cb():
@@ -219,7 +219,7 @@ class GrpcProbe(DebugProbe):
 
 
     def read_ap(self, addr: int, now: bool = True):
-        LOG.info(f"read_ap: addr={addr}")
+        LOG.debug(f"read_ap: addr={addr}")
         (value,) = self.read_ap_multiple(addr, 1)
 
         def read_cb():
@@ -255,20 +255,20 @@ class GrpcProbe(DebugProbe):
         if response.status == debugprobe_pb2.AckOk:
             assert response.WhichOneof('response') == 'reg_rsp', "incorrect response type"
             data = [v for v in response.reg_rsp.values]
-            LOG.info(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
+            LOG.debug(f"_read_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(data[0])}")
             return data
 
-        LOG.info("_read_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
+        LOG.debug("_read_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
         raise self.ACK_EXCEPTIONS[response.status]
 
 
     def _write_reg(self, ap_n_dp: int, addr: int, values: List[int]) -> None:
-        LOG.info(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")
+        LOG.debug(f"_write_reg: ap_n_dp={ap_n_dp} addr={hex(addr)} data={hex(values[0])}")
         response = self._call_rpc(ap_n_dp=ap_n_dp, addr=addr, values=values)
         if response.status == debugprobe_pb2.AckOk:
             return
 
-        LOG.info("_write_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
+        LOG.debug("_write_reg: got ACK=%s" % debugprobe_pb2.ResponseStatus.Name(response.status))
         raise self.ACK_EXCEPTIONS[response.status]
 
 
