@@ -7,7 +7,7 @@ generate:
     generator: cmake
     parameters:
       files:
-        - build/libgrpc_debugprobe.a: { file_type: user, copyto: libgrpc_debugprobe.a }
+        - build/libpyocd_grpc.a: { file_type: user, copyto: libpyocd_grpc.a }
         - build/pyocd_grpc/debugprobe.pb.h: { file_type: user, copyto: pyocd_grpc/debugprobe.pb.h }
         - build/pyocd_grpc/debugprobe.grpc.pb.h: { file_type: user, copyto: pyocd_grpc/debugprobe.grpc.pb.h }
 

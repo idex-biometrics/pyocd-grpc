@@ -1,4 +1,4 @@
-project(grpc_debugprobe LANGUAGES CXX)
+project(pyocd_grpc LANGUAGES CXX)
 cmake_minimum_required(VERSION 3.15)
 
 find_package(protobuf REQUIRED)
@@ -12,23 +12,23 @@ set(PROTO_FILES
 set(PROTO_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(PROTO_IMPORT_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-add_library(grpc_debugprobe ${PROTO_FILES})
-target_link_libraries(grpc_debugprobe PUBLIC protobuf::libprotobuf gRPC::grpc gRPC::grpc++)
-target_include_directories(grpc_debugprobe PUBLIC "$<BUILD_INTERFACE:${PROTO_BINARY_DIR}>")
+add_library(pyocd_grpc ${PROTO_FILES})
+target_link_libraries(pyocd_grpc PUBLIC protobuf::libprotobuf gRPC::grpc gRPC::grpc++)
+target_include_directories(pyocd_grpc PUBLIC "$<BUILD_INTERFACE:${PROTO_BINARY_DIR}>")
 
 #
-# Compile protobuf and grpc files in grpc_debugprobe target to cpp
+# Compile protobuf and grpc files in pyocd_grpc target to cpp
 #
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 
 protobuf_generate(
-    TARGET grpc_debugprobe
+    TARGET pyocd_grpc
     IMPORT_DIRS ${PROTO_IMPORT_DIR}
     PROTOC_OUT_DIR ${PROTO_BINARY_DIR}
     LANGUAGE cpp)
 
 protobuf_generate(
-    TARGET grpc_debugprobe
+    TARGET pyocd_grpc
     LANGUAGE grpc
     IMPORT_DIRS ${PROTO_IMPORT_DIR}
     PROTOC_OUT_DIR ${PROTO_BINARY_DIR}
