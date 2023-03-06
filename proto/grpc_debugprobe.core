@@ -6,6 +6,8 @@ generate:
   grpc_debugprobe:
     generator: cmake
     parameters:
+      defines:
+        - BUILD_SHARED_LIBS=OFF
       files:
         - build/libpyocd_grpc.a: { file_type: user, copyto: libpyocd_grpc.a }
         - build/pyocd_grpc/debugprobe.pb.h: { file_type: user, copyto: pyocd_grpc/debugprobe.pb.h }
